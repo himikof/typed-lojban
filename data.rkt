@@ -1,0 +1,12 @@
+#lang racket
+'(mi viska la nanmu ku poi terpa le ke'a xirma)
+'(mi viska (la nanmu ku) (poi terpa (le ke'a xirma)))
+'((le gerku (poi blabi ku'o) ku) (cu klama) vau)
+'((re (le mu prenu)) (cu klama) (le zarci))
+'((re (le (poi ninmu ku'o) mu prenu)) (cu klama) (le zarci))
+'((re (le mu prenu (poi ninmu) ku)) (cu klama) (le zarci))
+'((re (le mu prenu ku) (poi ninmu)) (cu klama) (le zarci))
+'((seri'agi (mi jgari (lei djacu)) gi (mi jgari (le kabri))))
+'(mi (fu'e .ia) viska (le (blanu zdani (fu'o)) ponse))
+'(((ni'o ni'o) (.i mi klama (le zarci)) (.i do cadzu (le bisli))) 
+  ((ni'o) (.i mi klama (le zarci))))
