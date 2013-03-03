@@ -169,7 +169,7 @@ Defining selbri and brivla (arity-constrained):
 > defaultSC :: SelbriCtx
 > defaultSC = SCtx { hasCu = False }
 
-> class (Textful t, Typeable t{-, FGTaggable t-}) => Selbri (n :: Nat) t | t -> n where
+> class (Textful t, Typeable t, FGTaggable t) => Selbri (n :: Nat) t | t -> n where
 
 > data Brivla :: Nat -> * where
 >   Brivla :: HNat n -> Word -> Brivla n
@@ -184,6 +184,9 @@ So Brivla Nat1, for example, is in Typeable as well as T'.Typeable.
 >       rep = defaultSingTyRep "Brivla"
 > instance Textful (Brivla n) where
 >   untype (Brivla _ w) = TLeaf w
+> instance T'.Typeable n => FGTaggable (Brivla n) where
+>   type FGTagged (Brivla n) = SelbriFGT n
+>   withFGTagC = SelbriFGT
 > instance T'.Typeable n => Selbri n (Brivla n) where
 
 > --- x1 (talker) talks to x2 (audience) about x3 (topic) in language x4
@@ -337,6 +340,9 @@ KE and KEhE cmavo:
 > instance T'.Typeable Tanru where
 >   typeOf = \_ -> rep where
 >       rep = defaultSingTyRep "Tanru"
+> instance T'.Typeable n => FGTaggable (Tanru n) where
+>   type FGTagged (Tanru n) = SelbriFGT n
+>   withFGTagC = SelbriFGT
 
 > modifyTanruOpCtx :: (TanruOpCtx -> TanruOpCtx) -> Tanru n -> Tanru n
 > modifyTanruOpCtx f (Tanru op c l r) = Tanru op (f c) l r
@@ -390,6 +396,8 @@ TODO: implement other LE members - le, le'e, le'i, lo'e, lo'i, loi, etc
 
 Free grammar transformers: attitudinals and such
 
+TODO: implement bridi tagging
+
 > class (Typeable t, Textful t) => FreeGrammarTag t where
 
 > class FGTaggable w where
@@ -439,6 +447,17 @@ Free grammar transformers: attitudinals and such
 
 Attitudinals implementation:
 
-> data UI1 = Ui deriving (Eq, Generic, Typeable)
-> instance Textful UI1 where
-> instance FreeGrammarTag UI1 where
+> data UI = Ui deriving (Eq, Generic, Typeable)
+> instance Textful UI where
+> instance FreeGrammarTag UI where
+
+> data CAI = Cai|Cu'i|Pei|Sai|Ne'e deriving (Eq, Generic, Typeable)
+> instance Textful CAI where
+> instance FreeGrammarTag CAI where
+
+Universal negator NAI:
+It can be used as a FreeGrammarTag, among other places.
+
+> data NAI = Nai deriving (Eq, Generic, Typeable)
+> instance Textful NAI where
+> instance FreeGrammarTag NAI where
