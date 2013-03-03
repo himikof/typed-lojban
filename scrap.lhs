@@ -6,14 +6,14 @@
 > {-# OPTIONS -XMultiParamTypeClasses -XStandaloneDeriving -XDeriveDataTypeable #-}
 > {-# OPTIONS -XFunctionalDependencies -XTypeFamilies #-}
 > import Prelude (Show(..), Eq(..), (.), ($), String, map, undefined, const,
->                 (++), Bool(..), Maybe(..), maybe, error, otherwise)
+>                 (++), Bool(..), Maybe(..), maybe, error, otherwise, not)
 > import GHC.Exts (IsString(..))
 > import GHC.Generics hiding (moduleName)
 > import Data.Char
 > import Data.Foldable
 > import Data.Functor
 > import Data.Typeable
-> import Data.List (intercalate)
+> import Data.List (intercalate, null, filter)
 > import qualified Lojban.Grammar.Typeable as T'
 
 > packageName :: String
@@ -38,6 +38,11 @@ hierarchical structure of text, but is untyped.
 >   foldMap f (TNode l) = foldMap (foldMap f) l
 > instance Show (TextTree) where
 >   show = showTextTree
+> isEmptyTT :: TreeT w -> Bool
+> isEmptyTT (TLeaf _) = False
+> isEmptyTT (TNode l) = null l
+> mkTNode :: [TreeT w] -> TreeT w
+> mkTNode l = TNode $ filter (not . isEmptyTT) l
 
 > flatten :: TextTree -> [Word]
 > flatten = foldMap (\x -> [x])
@@ -65,7 +70,7 @@ Generic phrase untyping:
 
 > class GPhraseUntype f where
 >   guntype :: f a -> TextTree
->   guntype = TNode . guntype2
+>   guntype = mkTNode . guntype2
 >   guntype2 :: f a -> [TextTree]
 >   guntype2 x = case guntype x of
 >       u@(TLeaf _) -> [u]
@@ -77,7 +82,7 @@ Generic phrase untyping:
 >   --guntype2 = undefined
 > instance (Constructor c, GPhraseUntype t) =>
 >       GPhraseUntype (C1 c (S1 NoSelector t)) where
->   guntype x = TNode $ [constructorAsPhrase x] ++
+>   guntype x = mkTNode $ [constructorAsPhrase x] ++
 >       guntype2 (unM1 $ unM1 x)
 > --  guntype2 = undefined
 > instance GPhraseUntype (Rec0 Word) where
@@ -164,7 +169,7 @@ Defining selbri and brivla (arity-constrained):
 > defaultSC :: SelbriCtx
 > defaultSC = SCtx { hasCu = False }
 
-> class (Textful t, Typeable t) => Selbri (n :: Nat) t | t -> n where
+> class (Textful t, Typeable t{-, FGTaggable t-}) => Selbri (n :: Nat) t | t -> n where
 
 > data Brivla :: Nat -> * where
 >   Brivla :: HNat n -> Word -> Brivla n
@@ -263,10 +268,10 @@ How can it be typed?
 >       and [s `eqT` s', x1 `eqT` x1', x2 `eqT` x2', x3 `eqT` x3', x4 `eqT` x4']
 >   _ == _ = False
 > instance Textful Bridi where
->   untype (Bridi1 s c x1) = TNode $ liftedUntype (x1, mkCu c, s)
->   untype (Bridi2 s c x1 x2) = TNode $ liftedUntype (x1, mkCu c, s, x2)
->   untype (Bridi3 s c x1 x2 x3) = TNode $ liftedUntype (x1, mkCu c, s, x2, x3)
->   untype (Bridi4 s c x1 x2 x3 x4) = TNode $ liftedUntype (x1, mkCu c, s, x2, x3, x4)
+>   untype (Bridi1 s c x1) = mkTNode $ liftedUntype (x1, mkCu c, s)
+>   untype (Bridi2 s c x1 x2) = mkTNode $ liftedUntype (x1, mkCu c, s, x2)
+>   untype (Bridi3 s c x1 x2 x3) = mkTNode $ liftedUntype (x1, mkCu c, s, x2, x3)
+>   untype (Bridi4 s c x1 x2 x3 x4) = mkTNode $ liftedUntype (x1, mkCu c, s, x2, x3, x4)
 
 Tanru - complex selbri, recursively defined.
 Operators: 
@@ -324,8 +329,8 @@ KE and KEhE cmavo:
 
 > instance (T'.Typeable n) => Selbri n (TanruF n) where
 > instance Textful (TanruF n) where
->   untype (TanruF op c l r) = TNode $ [untype $ mkKe c, ul, untype op,
->                                       ur, untype $ mkKe'e c] where
+>   untype (TanruF op c l r) = mkTNode $ [untype $ mkKe c, ul, untype op,
+>                                         ur, untype $ mkKe'e c] where
 >       (ul, ur) = untypeArgsOrdered op l r
 > instance Eq (TanruF n) where 
 >   TanruF op _ l r == TanruF op' _ l' r' = and [op `eqT` op', l `eqT` l', r `eqT` r']
@@ -377,7 +382,7 @@ TODO: implement other LE members - le, le'e, le'i, lo'e, lo'i, loi, etc
 > instance Eq LESumti where
 >   LESumti d _ s == LESumti d' _ s' = and [d == d', s `eqT` s']
 > instance Textful LESumti where
->   untype (LESumti d c s) = TNode $ liftedUntype (d, s, mkKu c)
+>   untype (LESumti d c s) = mkTNode $ liftedUntype (d, s, mkKu c)
 > instance FGTaggable LESumti where
 >   type FGTagged LESumti = SumtiFGT
 >   withFGTagC = SumtiFGT
@@ -397,22 +402,40 @@ Free grammar transformers: attitudinals and such
 > defaultFGTC :: FGTransCtx
 > defaultFGTC = FGTransCtx { suffixPosition = False }
 
+> defaultFreeGrammarUntype :: (Textful w, FreeGrammarTag t) => 
+>                             String -> t -> FGTransCtx -> w -> TextTree
+> defaultFreeGrammarUntype msg t c w = mkTNode $ if suffixPosition c
+>                                                then liftedUntype (w, t)
+>                                                else case untype w of
+>                                                   su@(TLeaf _) -> [su, untype t]
+>                                                   TNode [] -> error msg
+>                                                   TNode (x:xs) -> x:untype t:xs
+
 > data SumtiFGT where
 >   SumtiFGT :: (Sumti s, FreeGrammarTag t) => t -> FGTransCtx -> s -> SumtiFGT
 > deriving instance (Typeable SumtiFGT)
 > instance Eq SumtiFGT where
 >   SumtiFGT t _ s == SumtiFGT t' _ s' = and [t `eqT` t', s `eqT` s']
 > instance Textful SumtiFGT where
->   untype (SumtiFGT t c s) = TNode $ if suffixPosition c
->                                     then liftedUntype (s, t)
->                                     else case untype s of
->                                       su@(TLeaf w) -> [su, untype t]
->                                       TNode [] -> error "Empty sumti"
->                                       TNode (x:xs) -> x:untype t:xs
+>   untype (SumtiFGT t c s) = defaultFreeGrammarUntype "Empty sumti" t c s
 > instance FGTaggable SumtiFGT where
 >   type FGTagged SumtiFGT = SumtiFGT
 >   withFGTagC = SumtiFGT
 > instance Sumti SumtiFGT where
+
+> data SelbriFGT :: Nat -> * where
+>   SelbriFGT :: (Selbri n s, FreeGrammarTag t) => t -> FGTransCtx -> s -> SelbriFGT n
+> instance T'.Typeable SelbriFGT where
+>   typeOf = \_ -> rep where
+>       rep = defaultSingTyRep "SelbriFGT"
+> instance Eq (SelbriFGT n) where
+>   SelbriFGT t _ s == SelbriFGT t' _ s' = and [t `eqT` t', s `eqT` s']
+> instance Textful (SelbriFGT n) where
+>   untype (SelbriFGT t c s) = defaultFreeGrammarUntype "Empty selbri" t c s
+> instance T'.Typeable n => FGTaggable (SelbriFGT n) where
+>   type FGTagged (SelbriFGT n) = SelbriFGT n
+>   withFGTagC = SelbriFGT
+> instance T'.Typeable n => Selbri n (SelbriFGT n) where
 
 Attitudinals implementation:
 
