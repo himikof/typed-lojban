@@ -324,35 +324,35 @@ KE and KEhE cmavo:
 > instance TanruOp CO where
 >   untypeArgsOrdered _ l r = (untype r, untype l)
 
-> data TanruF :: Nat -> * where
->   TanruF :: (TanruOp op, Selbri m l, Selbri n r) => op -> TanruOpCtx -> l -> r -> TanruF n
+> data Tanru :: Nat -> * where
+>   Tanru :: (TanruOp op, Selbri m l, Selbri n r) => op -> TanruOpCtx -> l -> r -> Tanru n
 
-> instance (T'.Typeable n) => Selbri n (TanruF n) where
-> instance Textful (TanruF n) where
->   untype (TanruF op c l r) = mkTNode $ [untype $ mkKe c, ul, untype op,
+> instance (T'.Typeable n) => Selbri n (Tanru n) where
+> instance Textful (Tanru n) where
+>   untype (Tanru op c l r) = mkTNode $ [untype $ mkKe c, ul, untype op,
 >                                         ur, untype $ mkKe'e c] where
 >       (ul, ur) = untypeArgsOrdered op l r
-> instance Eq (TanruF n) where 
->   TanruF op _ l r == TanruF op' _ l' r' = and [op `eqT` op', l `eqT` l', r `eqT` r']
-> instance T'.Typeable TanruF where
+> instance Eq (Tanru n) where 
+>   Tanru op _ l r == Tanru op' _ l' r' = and [op `eqT` op', l `eqT` l', r `eqT` r']
+> instance T'.Typeable Tanru where
 >   typeOf = \_ -> rep where
->       rep = defaultSingTyRep "TanruF"
+>       rep = defaultSingTyRep "Tanru"
 
-> modifyTanruOpCtx :: (TanruOpCtx -> TanruOpCtx) -> TanruF n -> TanruF n
-> modifyTanruOpCtx f (TanruF op c l r) = TanruF op (f c) l r
+> modifyTanruOpCtx :: (TanruOpCtx -> TanruOpCtx) -> Tanru n -> Tanru n
+> modifyTanruOpCtx f (Tanru op c l r) = Tanru op (f c) l r
 
-> tanruApp :: (Selbri m l, Selbri n r) => l -> r -> TanruF n
-> l `tanruApp` r = TanruF TanruApp defaultTC l r
-> bo :: (Selbri m l, Selbri n r) => l -> r -> TanruF n
-> l `bo` r = TanruF Bo defaultTC l r
-> co :: (Selbri m l, Selbri n r) => l -> r -> TanruF n
-> l `co` r = TanruF Co defaultTC l r
+> tanruApp :: (Selbri m l, Selbri n r) => l -> r -> Tanru n
+> l `tanruApp` r = Tanru TanruApp defaultTC l r
+> bo :: (Selbri m l, Selbri n r) => l -> r -> Tanru n
+> l `bo` r = Tanru Bo defaultTC l r
+> co :: (Selbri m l, Selbri n r) => l -> r -> Tanru n
+> l `co` r = Tanru Co defaultTC l r
 
-> updateKeState :: KeState -> TanruF n -> TanruF n
+> updateKeState :: KeState -> Tanru n -> Tanru n
 > updateKeState s = modifyTanruOpCtx (\c -> c {keState = s})
-> ke :: TanruF n -> TanruF n
+> ke :: Tanru n -> Tanru n
 > ke = updateKeState HasKE
-> keKe'e :: TanruF n -> TanruF n
+> keKe'e :: Tanru n -> Tanru n
 > keKe'e = updateKeState HasKEAndKEhE
 
 KU cmavo:
