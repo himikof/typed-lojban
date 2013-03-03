@@ -4,12 +4,12 @@
 > {-# OPTIONS -XFlexibleInstances -XTypeOperators -XFlexibleContexts #-}
 > {-# OPTIONS -XNoMonomorphismRestriction -XKindSignatures -XDataKinds #-}
 > {-# OPTIONS -XMultiParamTypeClasses -XStandaloneDeriving -XDeriveDataTypeable #-}
-> {-# OPTIONS -XFunctionalDependencies #-}
+> {-# OPTIONS -XFunctionalDependencies -XTypeFamilies #-}
 > import Prelude (Show(..), Eq(..), (.), ($), String, map, undefined, const,
->                 (++), Bool(..), Maybe(..), maybe)
+>                 (++), Bool(..), Maybe(..), maybe, error, otherwise)
 > import GHC.Exts (IsString(..))
 > import GHC.Generics hiding (moduleName)
-> import qualified Data.Char as C
+> import Data.Char
 > import Data.Foldable
 > import Data.Functor
 > import Data.Typeable
@@ -26,7 +26,7 @@ Some basic definitions:
 
 > newtype Word = Word { unWord :: String } deriving (Show, Eq)
 > instance IsString Word where
->   fromString = Word
+>   fromString = fixedWord
 
 TextTree type is something similar to S-expressions. It can represent
 hierarchical structure of text, but is untyped.
@@ -42,9 +42,17 @@ hierarchical structure of text, but is untyped.
 > flatten :: TextTree -> [Word]
 > flatten = foldMap (\x -> [x])
 
-> lowerFirst :: String -> String
-> lowerFirst "" = ""
-> lowerFirst (x:xs) = C.toLower x : xs
+> vowels :: String
+> vowels = "aeiou"
+> isVowel :: Char -> Bool
+> isVowel c = (c `elem` vowels)
+
+> fixedWord :: String -> Word
+> fixedWord "" = ""
+> fixedWord (x:xs) = Word $ prefix ++ xl : xs where
+>   xl = toLower x
+>   prefix | isVowel xl = "."
+>          | otherwise = ""
 
 Textful class contains all typed representations of TextTrees.
 
@@ -63,7 +71,7 @@ Generic phrase untyping:
 >       u@(TLeaf _) -> [u]
 >       TNode l -> l
 > constructorAsPhrase :: Constructor c => (C1 c t) a -> TextTree
-> constructorAsPhrase = TLeaf . Word . lowerFirst . conName
+> constructorAsPhrase = TLeaf . fixedWord . conName
 > instance (Constructor c) => GPhraseUntype (C1 c U1)  where
 >   guntype = constructorAsPhrase
 >   --guntype2 = undefined
@@ -97,19 +105,25 @@ Generic phrase untyping:
 
 Sumti class:
 
-> class (Textful w, Typeable w) => Sumti w where
+> class (Textful w, Typeable w, FGTaggable w) => Sumti w where
 
 Some pro-sumti (pronouns and such):
 
 > data ProSumti = Mi | Do | Ti | Ta | Tu | Zo'e
 >   deriving (Eq, Generic, Typeable)
 > instance Textful ProSumti where
+> instance FGTaggable ProSumti where
+>   type FGTagged ProSumti = SumtiFGT
+>   withFGTagC = SumtiFGT
 > instance Sumti ProSumti where
 
 Defining cmene (names):
 
 > data Cmene = La Word deriving (Eq, Generic, Typeable)
 > instance Textful Cmene where
+> instance FGTaggable Cmene where
+>   type FGTagged Cmene = SumtiFGT
+>   withFGTagC = SumtiFGT
 > instance Sumti Cmene where
 
 Kind [of] magic:
@@ -364,5 +378,44 @@ TODO: implement other LE members - le, le'e, le'i, lo'e, lo'i, loi, etc
 >   LESumti d _ s == LESumti d' _ s' = and [d == d', s `eqT` s']
 > instance Textful LESumti where
 >   untype (LESumti d c s) = TNode $ liftedUntype (d, s, mkKu c)
+> instance FGTaggable LESumti where
+>   type FGTagged LESumti = SumtiFGT
+>   withFGTagC = SumtiFGT
 > instance Sumti LESumti where
 
+Free grammar transformers: attitudinals and such
+
+> class (Typeable t, Textful t) => FreeGrammarTag t where
+
+> class FGTaggable w where
+>   type FGTagged w :: *
+>   withFGTagC :: (FreeGrammarTag t) => t -> FGTransCtx -> w -> FGTagged w
+>   withFGTag :: (FreeGrammarTag t) => t -> w -> FGTagged w
+>   withFGTag t = withFGTagC t defaultFGTC
+
+> data FGTransCtx = FGTransCtx { suffixPosition :: Bool }
+> defaultFGTC :: FGTransCtx
+> defaultFGTC = FGTransCtx { suffixPosition = False }
+
+> data SumtiFGT where
+>   SumtiFGT :: (Sumti s, FreeGrammarTag t) => t -> FGTransCtx -> s -> SumtiFGT
+> deriving instance (Typeable SumtiFGT)
+> instance Eq SumtiFGT where
+>   SumtiFGT t _ s == SumtiFGT t' _ s' = and [t `eqT` t', s `eqT` s']
+> instance Textful SumtiFGT where
+>   untype (SumtiFGT t c s) = TNode $ if suffixPosition c
+>                                     then liftedUntype (s, t)
+>                                     else case untype s of
+>                                       su@(TLeaf w) -> [su, untype t]
+>                                       TNode [] -> error "Empty sumti"
+>                                       TNode (x:xs) -> x:untype t:xs
+> instance FGTaggable SumtiFGT where
+>   type FGTagged SumtiFGT = SumtiFGT
+>   withFGTagC = SumtiFGT
+> instance Sumti SumtiFGT where
+
+Attitudinals implementation:
+
+> data UI1 = Ui deriving (Eq, Generic, Typeable)
+> instance Textful UI1 where
+> instance FreeGrammarTag UI1 where
