@@ -336,11 +336,33 @@ KE and KEhE cmavo:
 > keKe'e :: TanruF n -> TanruF n
 > keKe'e = updateKeState HasKEAndKEhE
 
-Descriptors - selbri to sumti conversion
+KU cmavo:
 
-> {-data LE where
->   Lo :: (Selbri n s) => s -> LE
-> deriving instance Generic LE
+> data KU = Ku deriving (Eq, Generic)
+> instance Textful KU where
+
+Descriptors - selbri to sumti conversion
+TODO: implement other LE members - le, le'e, le'i, lo'e, lo'i, loi, etc
+
+> data LESumtiCtx = LESumtiCtx { hasKu :: Bool }
+> defaultLEC :: LESumtiCtx
+> defaultLEC = LESumtiCtx { hasKu = False }
+> mkKu :: LESumtiCtx -> Elidable KU
+> mkKu c = if hasKu c then Just Ku else Nothing
+
+> data LE = Lo deriving (Eq, Generic, Typeable)
 > instance Textful LE where
-> instance Sumti LE where-}
+> lo :: (Selbri n s) => s -> LESumti
+> lo = LESumti Lo defaultLEC
+> loKu :: (Selbri n s) => s -> LESumti
+> loKu = LESumti Lo defaultLEC { hasKu = True }
+
+> data LESumti where
+>   LESumti :: (Selbri n s) => LE -> LESumtiCtx -> s -> LESumti
+> deriving instance (Typeable LESumti)
+> instance Eq LESumti where
+>   LESumti d _ s == LESumti d' _ s' = and [d == d', s `eqT` s']
+> instance Textful LESumti where
+>   untype (LESumti d c s) = TNode $ liftedUntype (d, s, mkKu c)
+> instance Sumti LESumti where
 
