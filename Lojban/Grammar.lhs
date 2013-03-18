@@ -1,7 +1,7 @@
 This module exports high-level lojban grammar structures.
 
 > {-# OPTIONS -XGADTs -XFunctionalDependencies -XTypeFamilies -XMultiParamTypeClasses #-}
-> {-# OPTIONS -XFlexibleInstances -XTypeOperators -XFlexibleContexts #-}
+> {-# OPTIONS -XFlexibleInstances -XTypeOperators -XFlexibleContexts -XViewPatterns #-}
 > {-# OPTIONS -XDeriveGeneric -XStandaloneDeriving -XDeriveDataTypeable #-}
 > {-# OPTIONS -XKindSignatures -XDataKinds #-}
 
@@ -13,6 +13,7 @@ This module exports high-level lojban grammar structures.
 >   Sumti(..),
 >   Selbri(..),
 >   Bridi(..), SelbriCtx(..), defaultSC,
+>   SelbriPlace(..), defaultSP,
 >   FreeGrammarTag(..),
 >   FGTaggable(..),
 >   FGTransCtx(..), defaultFGTC,
@@ -21,17 +22,17 @@ This module exports high-level lojban grammar structures.
 >   SumtiFGT(..),
 >   SelbriFGT(..),
 >   CU(..), KE(..), KEhE(..), TanruApp(..), BO(..), CO(..),
->   KU(..), LE(..),
+>   KU(..), LE(..), FA(..),
 >   tanruApp, bo, co, ke, keKe'e, lo, loKu,
 > ) where
 
-> import Prelude (Show(..), Eq(..), (.), ($), String, map, undefined, const,
->                 (++), Bool(..), Maybe(..), maybe, error, otherwise, not, and)
 > import GHC.Generics hiding (moduleName)
 > import Data.Char
 > import Data.Functor
 > import Data.Typeable
-> import Data.List (intercalate, null, filter)
+> import Data.List
+> import Data.Maybe (catMaybes)
+> import Control.Monad.State
 > import qualified Lojban.Grammar.Typeable as T'
 > import Lojban.Grammar.TextTree
 > import Lojban.Grammar.NatKind
@@ -60,9 +61,19 @@ Define T'.Typeable instances for datatypes with unusual kinds:
 
 Defining selbri and brivla (arity-constrained):
 
-> data SelbriCtx = SCtx { hasCu :: Bool } deriving (Eq)
+> data SelbriPlace = SelbriPlace {
+>   explicitZo'e :: Bool,
+>   tag :: Elidable FA
+> } deriving (Eq)
+> defaultSP :: SelbriPlace
+> defaultSP = SelbriPlace {explicitZo'e = False, tag = Nothing}
+
+> data SelbriCtx = SCtx { 
+>   hasCu :: Bool,
+>   places :: Maybe [SelbriPlace]
+> } deriving (Eq)
 > defaultSC :: SelbriCtx
-> defaultSC = SCtx { hasCu = False }
+> defaultSC = SCtx { hasCu = False, places = Nothing }
 
 > class (Textful t, Typeable t, FGTaggable t) => Selbri (n :: Nat) t | t -> n where
 
@@ -83,6 +94,25 @@ So Brivla Nat1, for example, is in Typeable as well as T'.Typeable.
 >   type FGTagged (Brivla n) = SelbriFGT n
 >   withFGTagC = SelbriFGT
 > instance T'.Typeable n => Selbri n (Brivla n) where
+
+FA tag cmavo:
+
+TODO: CLL/9/3: support fi'a (in FA) - place structure question
+
+> data FA = Fa | Fe | Fi | Fo | Fu deriving (Eq, Generic)
+> instance Textful FA where
+> tagIndex :: FA -> Int
+> tagIndex Fa = 0
+> tagIndex Fe = 1
+> tagIndex Fi = 2
+> tagIndex Fo = 3
+> tagIndex Fu = 4
+> mkFA :: Int -> Maybe FA
+> mkFA 0 = Just Fa
+> mkFA 1 = Just Fe
+> mkFA 2 = Just Fi
+> mkFA 3 = Just Fo
+> mkFA 4 = Just Fu
 
 CU cmavo:
 
@@ -124,7 +154,7 @@ Main bridi datatype:
 CU is already supported.
 
 Sumti slot remapper (planned):
- - Support FA tags and moving selbri around.
+ - Support moving selbri around (x1 x2 selbri x3, for example).
  - Support zo'e omission
  - Think about exact string preserving after roundtrip.
  - BE/BEI/BEhO linked sumti
@@ -150,10 +180,39 @@ How can it be typed?
 >       and [s `eqT` s', x1 `eqT` x1', x2 `eqT` x2', x3 `eqT` x3', x4 `eqT` x4']
 >   _ == _ = False
 > instance Textful Bridi where
->   untype (Bridi1 s c x1) = mkTNode $ liftedUntype (x1, mkCu c, s)
->   untype (Bridi2 s c x1 x2) = mkTNode $ liftedUntype (x1, mkCu c, s, x2)
->   untype (Bridi3 s c x1 x2 x3) = mkTNode $ liftedUntype (x1, mkCu c, s, x2, x3)
->   untype (Bridi4 s c x1 x2 x3 x4) = mkTNode $ liftedUntype (x1, mkCu c, s, x2, x3, x4)
+>   untype (Bridi1 s c x1) = untypeBridi (untype s) c [untype x1]
+>   untype (Bridi2 s c x1 x2) = untypeBridi (untype s) c $ liftedUntype (x1, x2)
+>   untype (Bridi3 s c x1 x2 x3) = untypeBridi (untype s) c $ liftedUntype (x1, x2, x3)
+>   untype (Bridi4 s c x1 x2 x3 x4) = untypeBridi (untype s) c $ liftedUntype (x1, x2, x3, x4)
+
+TODO: Check places structure for correctness.
+
+> untypeBridi :: TextTree -> SelbriCtx -> [TextTree] -> TextTree
+> untypeBridi s ctx sumtis = layoutBridi sumtis [untype $ mkCu ctx, s] ctx
+
+> layoutBridiPlaces :: [SelbriPlace] -> [TextTree] -> [Maybe TextTree]
+> layoutBridiPlaces places sumtis = evalState (mapM f places) 0 where
+>   f :: SelbriPlace -> State Int (Maybe TextTree)
+>   f place = 
+>       case tag place of
+>            Nothing -> do
+>               sumti <- liftM (sumtis !!) $ get
+>               modify (+1)
+>               return $ Just sumti
+>            Just tag -> do
+>               put $ tagIndex tag + 1
+>               let sumti = sumtis !! tagIndex tag
+>               return $ Just $ mkTNode [untype tag, sumti]
+
+> layoutBridi :: [TextTree] -> [TextTree] -> SelbriCtx -> TextTree
+> layoutBridi sumtis selbri ctx = mkTNode $
+>   case ctx of
+>       (places -> Nothing) -> layout $ catMaybes $ layoutBridiPlaces defPlaces sumtis
+>       (places -> Just places) -> layout $ catMaybes $ layoutBridiPlaces places sumtis
+>   where defPlace = SelbriPlace {explicitZo'e = False, tag = Nothing}
+>         defPlaces = take (length sumtis) $ repeat $ defPlace
+>         layout [] = selbri
+>         layout (t:ts) = t : selbri ++ ts
 
 Tanru - complex selbri, recursively defined.
 Operators: 
