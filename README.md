@@ -36,10 +36,10 @@ A few examples:
 * ``reprTextTree $ untype $ tavla `tanruApp` pelxu `bo` zdani``  
   `"(tavla (pelxu bo zdani))"`
 * ``reprTextTree $ untype $ tavla `tanruApp` pelxu `co` zdani``  
-  `"(zdani co (tavla pelxu))"`
+  `"((tavla pelxu) co zdani)"`
 * ``reprTextTree $ untype $ keKe'e $ zdani `bo` pelxu``  
   `"(ke zdani bo pelxu ke'e)"`
-* ``reprTextTree $ untype $ Bridi1 (zdani `co` pelxu) defaultSC Zo'e``  
+* ``reprTextTree $ untype $ Bridi1 (pelxu `co` zdani) defaultSC Zo'e``  
   `"(zo'e (pelxu co zdani))"`
 * ``reprTextTree $ untype $ Bridi1 pelxu defaultSC (lo zdani)``  
    `"((lo zdani) pelxu)"`

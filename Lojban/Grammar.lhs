@@ -290,8 +290,8 @@ KE and KEhE cmavo:
 > bo :: (Selbri m l, Selbri n r) => l -> r -> Tanru n
 > l `bo` r = Tanru Bo defaultTC l r
 > infixr 5 `co`
-> co :: (Selbri m l, Selbri n r) => l -> r -> Tanru n
-> l `co` r = Tanru Co defaultTC l r
+> co :: (Selbri m l, Selbri n r) => r -> l -> Tanru n
+> r `co` l = Tanru Co defaultTC l r
 
 > updateKeState :: KeState -> Tanru n -> Tanru n
 > updateKeState s = modifyTanruOpCtx (\c -> c {keState = s})
