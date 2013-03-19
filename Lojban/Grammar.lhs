@@ -216,12 +216,12 @@ TODO: Check places structure for correctness.
 
 Tanru - complex selbri, recursively defined.
 Operators: 
- - Selbri `tanruApp` Selbri : written as "Selbri Selbri", priority 3, left-associative
- - Selbri `bo` Selbri : priority 6, right-associative
- - ke [Selbri] : written as "ke Selbri Selbri ... Selbri [ke'e]", priority 7
- - Selbri `JA` Selbri : logical connectives, priority 5, left-associative
- - Selbri `JAbo` Selbri : logical connectives, priority 4, left-associative
- - Selbri `co` Selbri : inversion, priority 2, right-associative, cannot be inside ke...ke'e
+ - Selbri `tanruApp` Selbri : written as "Selbri Selbri", priority 6, left-associative
+ - Selbri `bo` Selbri : priority 9, right-associative
+ - ke [Selbri] : written as "ke Selbri Selbri ... Selbri [ke'e]", scoped
+ - Selbri `JA` Selbri : logical connectives, priority 8, left-associative
+ - Selbri `JAbo` Selbri : logical connectives, priority 7, left-associative
+ - Selbri `co` Selbri : inversion, priority 5, right-associative, cannot be inside ke...ke'e
 
 TODO: JA, JAbo, prohibit co inside ke...ke'e
 
@@ -285,10 +285,13 @@ KE and KEhE cmavo:
 > modifyTanruOpCtx :: (TanruOpCtx -> TanruOpCtx) -> Tanru n -> Tanru n
 > modifyTanruOpCtx f (Tanru op c l r) = Tanru op (f c) l r
 
+> infixl 6 `tanruApp`
 > tanruApp :: (Selbri m l, Selbri n r) => l -> r -> Tanru n
 > l `tanruApp` r = Tanru TanruApp defaultTC l r
+> infixr 9 `bo`
 > bo :: (Selbri m l, Selbri n r) => l -> r -> Tanru n
 > l `bo` r = Tanru Bo defaultTC l r
+> infixr 5 `co`
 > co :: (Selbri m l, Selbri n r) => l -> r -> Tanru n
 > l `co` r = Tanru Co defaultTC l r
 
