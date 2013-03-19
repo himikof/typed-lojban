@@ -129,9 +129,7 @@ Some helpers for bridi implementation:
 
 > mkCu :: SelbriCtx -> Elidable CU
 > mkCu c = if hasCu c then Just Cu else Nothing
->
-> 
->
+
 > class GLiftedUntype f where
 >   gliftedUntype :: f a -> [TextTree]
 > instance GLiftedUntype U1 where
@@ -216,12 +214,12 @@ TODO: Check places structure for correctness.
 
 Tanru - complex selbri, recursively defined.
 Operators: 
- - Selbri `tanruApp` Selbri : written as "Selbri Selbri", priority 6, left-associative
- - Selbri `bo` Selbri : priority 9, right-associative
- - ke [Selbri] : written as "ke Selbri Selbri ... Selbri [ke'e]", scoped
- - Selbri `JA` Selbri : logical connectives, priority 8, left-associative
- - Selbri `JAbo` Selbri : logical connectives, priority 7, left-associative
- - Selbri `co` Selbri : inversion, priority 5, right-associative, cannot be inside ke...ke'e
+ - ``Selbri `tanruApp` Selbri``: written as "Selbri Selbri", priority 6, left-associative
+ - ``Selbri `bo` Selbri``: priority 9, right-associative
+ - ``ke [Selbri]``: written as "ke Selbri Selbri ... Selbri [ke'e]", scoped
+ - ``Selbri `JA` Selbri``: logical connectives, priority 8, left-associative
+ - ``Selbri `JAbo` Selbri``: logical connectives, priority 7, left-associative
+ - ``Selbri `co` Selbri``: inversion, priority 5, right-associative, cannot be inside ke...ke'e
 
 TODO: JA, JAbo, prohibit co inside ke...ke'e
 
@@ -308,6 +306,7 @@ KU cmavo:
 > instance Textful KU where
 
 Descriptors - selbri to sumti conversion
+
 TODO: implement other LE members - le, le'e, le'i, lo'e, lo'i, loi, etc
 
 > data LESumtiCtx = LESumtiCtx { hasKu :: Bool }
