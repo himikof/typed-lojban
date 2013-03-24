@@ -64,14 +64,14 @@ Defining selbri and brivla (arity-constrained):
 > data SelbriPlace = SelbriPlace {
 >   explicitZo'e :: Bool,
 >   tag :: Elidable FA
-> } deriving (Eq)
+> } deriving (Eq, Show)
 > defaultSP :: SelbriPlace
 > defaultSP = SelbriPlace {explicitZo'e = False, tag = Nothing}
 
 > data SelbriCtx = SCtx { 
 >   hasCu :: Bool,
 >   places :: Maybe [SelbriPlace]
-> } deriving (Eq)
+> } deriving (Eq, Show)
 > defaultSC :: SelbriCtx
 > defaultSC = SCtx { hasCu = False, places = Nothing }
 
@@ -99,7 +99,7 @@ FA tag cmavo:
 
 TODO: CLL/9/3: support fi'a (in FA) - place structure question
 
-> data FA = Fa | Fe | Fi | Fo | Fu deriving (Eq, Generic)
+> data FA = Fa | Fe | Fi | Fo | Fu deriving (Eq, Generic, Show)
 > instance Textful FA where
 > tagIndex :: FA -> Int
 > tagIndex Fa = 0
@@ -123,7 +123,7 @@ Elidable functor:
 
 > type Elidable = Maybe
 > instance Textful t => Textful (Elidable t) where
->   untype = maybe (TNode []) untype
+>   untype = maybe emptyTNode untype
 
 Some helpers for bridi implementation:
 
@@ -186,7 +186,7 @@ How can it be typed?
 TODO: Check places structure for correctness.
 
 > untypeBridi :: TextTree -> SelbriCtx -> [TextTree] -> TextTree
-> untypeBridi s ctx sumtis = layoutBridi sumtis [untype $ mkCu ctx, s] ctx
+> untypeBridi s ctx sumtis = layoutBridi sumtis (untype $ mkCu ctx, s) ctx
 
 > layoutBridiPlaces :: [SelbriPlace] -> [TextTree] -> [Maybe TextTree]
 > layoutBridiPlaces places sumtis = evalState (mapM f places) 0 where
@@ -200,17 +200,17 @@ TODO: Check places structure for correctness.
 >            Just tag -> do
 >               put $ tagIndex tag + 1
 >               let sumti = sumtis !! tagIndex tag
->               return $ Just $ mkTNode [untype tag, sumti]
+>               return $ Just $ mkTNode [] [untype tag] [sumti]
 
-> layoutBridi :: [TextTree] -> [TextTree] -> SelbriCtx -> TextTree
-> layoutBridi sumtis selbri ctx = mkTNode $
+> layoutBridi :: [TextTree] -> (TextTree, TextTree) -> SelbriCtx -> TextTree
+> layoutBridi sumtis (cu, selbri) ctx = mkTNode' $
 >   case ctx of
 >       (places -> Nothing) -> layout $ catMaybes $ layoutBridiPlaces defPlaces sumtis
 >       (places -> Just places) -> layout $ catMaybes $ layoutBridiPlaces places sumtis
 >   where defPlace = SelbriPlace {explicitZo'e = False, tag = Nothing}
 >         defPlaces = take (length sumtis) $ repeat $ defPlace
->         layout [] = selbri
->         layout (t:ts) = t : selbri ++ ts
+>         layout [] = ([cu], [selbri], [])
+>         layout (t:ts) = ([t, cu], [selbri], ts)
 
 Tanru - complex selbri, recursively defined.
 Operators: 
@@ -251,7 +251,7 @@ KE and KEhE cmavo:
 
 > data TanruApp = TanruApp deriving (Eq, Typeable)
 > instance Textful TanruApp where
->   untype = const $ TNode []
+>   untype = const emptyTNode
 > instance TanruOp TanruApp where
 
 > data BO = Bo deriving (Eq, Generic, Typeable)
@@ -268,8 +268,8 @@ KE and KEhE cmavo:
 
 > instance (T'.Typeable n) => Selbri n (Tanru n) where
 > instance Textful (Tanru n) where
->   untype (Tanru op c l r) = mkTNode $ [untype $ mkKe c, ul, untype op,
->                                         ur, untype $ mkKe'e c] where
+>   untype (Tanru op c l r) = mkTNode [untype $ mkKe c, ul] [untype op]
+>                                     [ur, untype $ mkKe'e c] where
 >       (ul, ur) = untypeArgsOrdered op l r
 > instance Eq (Tanru n) where 
 >   Tanru op _ l r == Tanru op' _ l' r' = and [op `eqT` op', l `eqT` l', r `eqT` r']
@@ -328,7 +328,7 @@ TODO: implement other LE members - le, le'e, le'i, lo'e, lo'i, loi, etc
 > instance Eq LESumti where
 >   LESumti d _ s == LESumti d' _ s' = and [d == d', s `eqT` s']
 > instance Textful LESumti where
->   untype (LESumti d c s) = mkTNode $ liftedUntype (d, s, mkKu c)
+>   untype (LESumti d c s) = mkTNode [] [untype d] $ liftedUntype (s, mkKu c)
 > instance FGTaggable LESumti where
 >   type FGTagged LESumti = SumtiFGT
 >   withFGTagC = SumtiFGT
@@ -351,13 +351,12 @@ TODO: implement bridi tagging
 > defaultFGTC = FGTransCtx { suffixPosition = False }
 
 > defaultFreeGrammarUntype :: (Textful w, FreeGrammarTag t) => 
->                             String -> t -> FGTransCtx -> w -> TextTree
-> defaultFreeGrammarUntype msg t c w = mkTNode $ if suffixPosition c
->                                                then liftedUntype (w, t)
->                                                else case untype w of
->                                                   su@(TLeaf _) -> [su, untype t]
->                                                   TNode [] -> error msg
->                                                   TNode (x:xs) -> x:untype t:xs
+>                             t -> FGTransCtx -> w -> TextTree
+> defaultFreeGrammarUntype t c w = mkTNode' $ if suffixPosition c
+>                                             then ([untype w], [untype t], [])
+>                                             else case untype w of
+>                                                       su@(TLeaf _) -> ([su], [untype t], [])
+>                                                       TNode l c r -> (l, c ++ [untype t], r)
 
 > data SumtiFGT where
 >   SumtiFGT :: (Sumti s, FreeGrammarTag t) => t -> FGTransCtx -> s -> SumtiFGT
@@ -365,7 +364,7 @@ TODO: implement bridi tagging
 > instance Eq SumtiFGT where
 >   SumtiFGT t _ s == SumtiFGT t' _ s' = and [t `eqT` t', s `eqT` s']
 > instance Textful SumtiFGT where
->   untype (SumtiFGT t c s) = defaultFreeGrammarUntype "Empty sumti" t c s
+>   untype (SumtiFGT t c s) = defaultFreeGrammarUntype t c s
 > instance FGTaggable SumtiFGT where
 >   type FGTagged SumtiFGT = SumtiFGT
 >   withFGTagC = SumtiFGT
@@ -379,7 +378,7 @@ TODO: implement bridi tagging
 > instance Eq (SelbriFGT n) where
 >   SelbriFGT t _ s == SelbriFGT t' _ s' = and [t `eqT` t', s `eqT` s']
 > instance Textful (SelbriFGT n) where
->   untype (SelbriFGT t c s) = defaultFreeGrammarUntype "Empty selbri" t c s
+>   untype (SelbriFGT t c s) = defaultFreeGrammarUntype t c s
 > instance T'.Typeable n => FGTaggable (SelbriFGT n) where
 >   type FGTagged (SelbriFGT n) = SelbriFGT n
 >   withFGTagC = SelbriFGT
