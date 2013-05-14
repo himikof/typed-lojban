@@ -4,6 +4,7 @@ This module exports high-level lojban grammar structures.
 > {-# OPTIONS -XFlexibleInstances -XTypeOperators -XFlexibleContexts -XViewPatterns #-}
 > {-# OPTIONS -XDeriveGeneric -XStandaloneDeriving -XDeriveDataTypeable #-}
 > {-# OPTIONS -XKindSignatures -XDataKinds #-}
+> {-# OPTIONS -XOverloadedStrings -XScopedTypeVariables #-}
 
 > module Lojban.Grammar
 > (
@@ -52,12 +53,12 @@ Define T'.Typeable instances for datatypes with unusual kinds:
 
 > defaultSingTyRep :: String -> TypeRep
 > defaultSingTyRep s = mkTyConApp (mkTyCon3 packageName moduleName s) []
-> instance T'.Typeable 'Z where
+> {-instance T'.Typeable 'Z where
 >   typeOf = \_ -> defaultSingTyRep "'Z"
 > instance T'.Typeable 'Su where
 >   typeOf = \_ -> defaultSingTyRep "'Su"
 > instance T'.Typeable HNat where
->   typeOf = \_ -> defaultSingTyRep "HNat"
+>   typeOf = \_ -> defaultSingTyRep "HNat"-}
 
 Universal contradictory negator NA cmavo.
 
@@ -68,8 +69,10 @@ Defining selbri and brivla (arity-constrained):
 
 > data SelbriPlace = SelbriPlace {
 >   explicitZo'e :: Bool,
->   tag :: Elidable FA
-> } deriving (Eq, Show)
+>   tag :: Elidable (FA 0)
+> }
+> deriving instance Eq (SelbriPlace)
+> deriving instance Show (SelbriPlace)
 > defaultSP :: SelbriPlace
 > defaultSP = SelbriPlace {explicitZo'e = False, tag = Nothing}
 
@@ -83,7 +86,7 @@ Defining selbri and brivla (arity-constrained):
 > class (Textful t, Typeable t, FGTaggable t) => Selbri (n :: Nat) t | t -> n where
 
 > data Brivla :: Nat -> * where
->   Brivla :: HNat n -> Word -> Brivla n
+>   Brivla :: Word -> Brivla n
 > deriving instance Eq (Brivla n)
 
 Brivla cannot be in Typeable1, because its kind is Nat -> *, not * -> *.
@@ -94,7 +97,7 @@ So Brivla Nat1, for example, is in Typeable as well as T'.Typeable.
 >   typeOf = \_ -> rep where
 >       rep = defaultSingTyRep "Brivla"
 > instance Textful (Brivla n) where
->   untype (Brivla _ w) = TLeaf w
+>   untype (Brivla w) = TLeaf w
 > instance T'.Typeable n => FGTaggable (Brivla n) where
 >   type FGTagged (Brivla n) = SelbriFGT n
 >   withFGTagC = SelbriFGT
@@ -104,20 +107,34 @@ FA tag cmavo:
 
 TODO: CLL/9/3: support fi'a (in FA) - place structure question
 
-> data FA = Fa | Fe | Fi | Fo | Fu deriving (Eq, Generic, Show)
-> instance Textful FA where
-> tagIndex :: FA -> Int
-> tagIndex Fa = 0
+> data FA :: Nat -> * where
+>   Fa :: FA 0
+>   Fe :: FA 1
+>   Fi :: FA 2
+>   Fo :: FA 3
+>   Fu :: FA 4
+> deriving instance Eq (FA n)
+> deriving instance Show (FA n)
+
+> instance Textful (FA n) where
+>   untype Fa = TLeaf "Fa"
+>   untype Fe = TLeaf "Fe"
+>   untype Fi = TLeaf "Fi"
+>   untype Fo = TLeaf "Fo"
+>   untype Fu = TLeaf "Fu"
+> tagIndex :: forall n. SingI n => FA n -> Int
+> tagIndex _ = fromInteger $ fromSing (sing :: Sing n)
+> {-tagIndex Fa = 0
 > tagIndex Fe = 1
 > tagIndex Fi = 2
 > tagIndex Fo = 3
-> tagIndex Fu = 4
-> mkFA :: Int -> Maybe FA
+> tagIndex Fu = 4-}
+> {-mkFA :: Int -> Maybe (FA n)
 > mkFA 0 = Just Fa
 > mkFA 1 = Just Fe
 > mkFA 2 = Just Fi
 > mkFA 3 = Just Fo
-> mkFA 4 = Just Fu
+> mkFA 4 = Just Fu-}
 
 CU cmavo:
 
@@ -166,13 +183,13 @@ TODO: CLL/9/3: Actually, there may be more than one Sumti in a slot, using FA ta
 How can it be typed?
 
 > data Bridi where
->   Bridi1 :: (Selbri Nat1 s, Sumti x1)
+>   Bridi1 :: (Selbri 1 s, Sumti x1)
 >       => s -> SelbriCtx -> x1 -> Bridi
->   Bridi2 :: (Selbri Nat2 s, Sumti x1, Sumti x2)
+>   Bridi2 :: (Selbri 2 s, Sumti x1, Sumti x2)
 >       => s -> SelbriCtx -> x1 -> x2 -> Bridi
->   Bridi3 :: (Selbri Nat3 s, Sumti x1, Sumti x2, Sumti x3)
+>   Bridi3 :: (Selbri 3 s, Sumti x1, Sumti x2, Sumti x3)
 >       => s -> SelbriCtx -> x1 -> x2 -> x3 -> Bridi
->   Bridi4 :: (Selbri Nat4 s, Sumti x1, Sumti x2, Sumti x3, Sumti x4)
+>   Bridi4 :: (Selbri 4 s, Sumti x1, Sumti x2, Sumti x3, Sumti x4)
 >       => s -> SelbriCtx -> x1 -> x2 -> x3 -> x4 -> Bridi
 > instance Eq Bridi where
 >   Bridi1 s _ x1 == Bridi1 s' _ x1' = and [s `eqT` s', x1 `eqT` x1']

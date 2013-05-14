@@ -36,20 +36,20 @@ Defining cmene (names):
 Example brivla:
 
 > --- x1 (talker) talks to x2 (audience) about x3 (topic) in language x4
-> tavla :: Brivla Nat4
-> tavla = Brivla fourN "tavla"
+> tavla :: Brivla 4
+> tavla = Brivla "tavla"
 
 > --- x1 is yellow
-> pelxu :: Brivla Nat1
-> pelxu = Brivla oneN "pelxu"
+> pelxu :: Brivla 1
+> pelxu = Brivla "pelxu"
 
 > --- x1 gives x2 to x3 (without payment)
-> dunda :: Brivla Nat3
-> dunda = Brivla threeN "dunda"
+> dunda :: Brivla 3
+> dunda = Brivla "dunda"
 
 > --- x1 is a nest/house/lair/den/[home] of/for x2
-> zdani :: Brivla Nat2
-> zdani = Brivla twoN "zdani"
+> zdani :: Brivla 2
+> zdani = Brivla "zdani"
 
 Attitudinals implementation:
 

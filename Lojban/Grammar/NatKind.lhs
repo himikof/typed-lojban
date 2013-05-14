@@ -4,6 +4,17 @@ This module exports Nat kind and related types.
 
 > module Lojban.Grammar.NatKind
 > (
+>   Nat(..),
+>   Sing, SingI(..),
+>   fromSing,
+> )
+> where
+
+> import GHC.TypeLits
+
+> {-
+> module Lojban.Grammar.NatKind
+> (
 >   Nat(..), HNat(..),
 >   Nat1, Nat2, Nat3, Nat4, Nat5,
 >   zeroN, oneN, twoN, threeN, fourN, fiveN,
@@ -29,3 +40,4 @@ Kind [of] magic:
 > fourN = HS threeN
 > fiveN = HS fourN
 
+> -}
