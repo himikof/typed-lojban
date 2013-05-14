@@ -59,6 +59,11 @@ Define T'.Typeable instances for datatypes with unusual kinds:
 > instance T'.Typeable HNat where
 >   typeOf = \_ -> defaultSingTyRep "HNat"
 
+Universal contradictory negator NA cmavo.
+
+> data NA = Na deriving (Eq, Generic, Typeable)
+> instance Textful NA where
+
 Defining selbri and brivla (arity-constrained):
 
 > data SelbriPlace = SelbriPlace {
