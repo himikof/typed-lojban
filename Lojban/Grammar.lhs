@@ -46,7 +46,7 @@ This module exports high-level lojban grammar structures.
 
 Sumti class:
 
-> class (Textful w, Typeable w, FGTaggable w) => Sumti w where
+> class (Eq w, Textful w, Typeable w, FGTaggable w) => Sumti w where
 
 T'.Typeable is kind-polymorphic advanced Typeable class.
 Define T'.Typeable instances for datatypes with unusual kinds:
@@ -83,7 +83,7 @@ Defining selbri and brivla (arity-constrained):
 > defaultSC :: SelbriCtx
 > defaultSC = SCtx { hasCu = False, places = Nothing }
 
-> class (Textful t, Typeable t, FGTaggable t) => Selbri (n :: Nat) t | t -> n where
+> class (Eq t, Textful t, Typeable t, FGTaggable t) => Selbri (n :: Nat) t | t -> n where
 
 > data Brivla :: Nat -> * where
 >   Brivla :: Word -> Brivla n
@@ -267,7 +267,7 @@ KE and KEhE cmavo:
 >   HasKEAndKEhE -> Just Ke'e
 >   _            -> Nothing
 
-> class (Textful w, Typeable w) => TanruOp w where
+> class (Eq w, Textful w, Typeable w) => TanruOp w where
 >   untypeArgsOrdered :: (Selbri m l, Selbri n r) => w -> l -> r -> (TextTree, TextTree)
 >   untypeArgsOrdered _ l r = (untype l, untype r)
 
@@ -360,7 +360,7 @@ Free grammar transformers: attitudinals and such
 
 TODO: implement bridi tagging
 
-> class (Typeable t, Textful t) => FreeGrammarTag t where
+> class (Eq t, Typeable t, Textful t) => FreeGrammarTag t where
 
 > class FGTaggable w where
 >   type FGTagged w :: *

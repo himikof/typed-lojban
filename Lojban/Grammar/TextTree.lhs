@@ -62,7 +62,7 @@ has 3 arguments to highlight the most important word(s) in a node.
 
 Textful class contains all typed representations of TextTrees.
 
-> class Eq t => Textful t where
+> class {-Eq t => -}Textful t where
 >   untype :: t -> TextTree
 >   default untype :: (Generic t, GPhraseUntype (Rep t)) => t -> TextTree
 >   untype = guntype . from
