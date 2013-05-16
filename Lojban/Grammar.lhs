@@ -12,6 +12,8 @@ This module exports high-level lojban grammar structures.
 >   Textful(..),
 >   showTextTree, reprTextTree,
 >   Sumti(..),
+>   Term(..), TermsF(..), TermsState(..),
+>   BridiTailF(..), Bridi'(..),
 >   Selbri(..),
 >   Bridi(..), SelbriCtx(..), defaultSC,
 >   SelbriPlace(..), defaultSP,
@@ -25,6 +27,7 @@ This module exports high-level lojban grammar structures.
 >   CU(..), KE(..), KEhE(..), TanruApp(..), BO(..), CO(..),
 >   KU(..), LE(..), FA(..),
 >   tanruApp, bo, co, ke, keKe'e, lo, loKu,
+>   Max(..),
 > ) where
 
 > import GHC.Generics hiding (moduleName)
@@ -59,6 +62,14 @@ Define T'.Typeable instances for datatypes with unusual kinds:
 >   typeOf = \_ -> defaultSingTyRep "'Su"
 > instance T'.Typeable HNat where
 >   typeOf = \_ -> defaultSingTyRep "HNat"-}
+> instance T'.Typeable (0 :: Nat) where
+>   typeOf = \_ -> defaultSingTyRep "'Nat0"
+> instance T'.Typeable (1 :: Nat) where
+>   typeOf = \_ -> defaultSingTyRep "'Nat1"
+> instance T'.Typeable (2 :: Nat) where
+>   typeOf = \_ -> defaultSingTyRep "'Nat2"
+> instance T'.Typeable (3 :: Nat) where
+>   typeOf = \_ -> defaultSingTyRep "'Nat3"
 
 Universal contradictory negator NA cmavo.
 
@@ -102,6 +113,92 @@ So Brivla Nat1, for example, is in Typeable as well as T'.Typeable.
 >   type FGTagged (Brivla n) = SelbriFGT n
 >   withFGTagC = SelbriFGT
 > instance T'.Typeable n => Selbri n (Brivla n) where
+
+Term definition. Term is a (maybe tagged) sumti or a
+termset (compound term) or a KU/NA+KU (indicating no sumti).
+The datatype parameter is the place index or a Bool indicating
+that the place should receive the next index.
+There is no IndexedKuTerm, because that does not make sense
+(albeit being grammatically correct).
+Note that NaKuTerm is not a selbri per se, but has the same
+grammatical structure, meaning 'explicit negation span boundary'.
+Therefore, it does not occpuy any selbri slots.
+TODO: TaggedTerm, TaggedKuTerm and CompoundTerm constructors.
+
+> data TermPlacement = TPFixed Nat | TPAuto | TPPhantom
+> data Term :: TermPlacement -> * where
+>   SumtiTerm :: Sumti s => s -> Term TPAuto
+>   IndexedTerm :: Sumti s => FA n -> s -> Term (TPFixed n)
+>   NaKuTerm :: NA -> KU -> Term TPPhantom
+> instance T'.Typeable ('TPFixed) where
+>   typeOf = \_ -> rep where
+>       rep = defaultSingTyRep "'TPFixed"
+> instance T'.Typeable (Term) where
+>   typeOf = \_ -> rep where
+>       rep = defaultSingTyRep "Term"
+> instance Eq (Term n) where
+>   SumtiTerm s == SumtiTerm s' = s `eqT` s'
+>   IndexedTerm tag s == IndexedTerm tag' s' = and [tag == tag', s `eqT` s']
+>   NaKuTerm na ku == NaKuTerm na' ku' = and [na == na', ku == ku']
+>   _ == _ = False
+> instance Textful (Term n) where
+>   untype (SumtiTerm s) = untype s
+>   untype (IndexedTerm tag s) = mkTNode [untype tag] [untype s] []
+>   untype (NaKuTerm na ku) = mkTNode [] (liftedUntype (na, ku)) []
+
+Term list definition. The data type second parameter encodes
+the next place index and place arity (maximum used index).
+Essentially, an object of type `TermsF a b` is a
+term sequence from state `a :: TermState` to `b :: TermState`.
+
+> data TermsState = TState { nextPlaceIndex :: Nat, placeArity :: Nat }
+> instance T'.Typeable ('TState) where
+>   typeOf = \_ -> rep where
+>       rep = defaultSingTyRep "'TState"
+> data family TermsF (s0 :: TermsState) :: TermsState -> *
+> data instance TermsF s0 sx where
+>   TNil :: TermsF s0 s0
+>   (:#:) :: {-(T'.Typeable n, T'.Typeable s0, T'.Typeable nextI, T'.Typeable arity) =>-}
+>           Term (TPFixed n) -> TermsF s0 (TState nextI arity)
+>               -> TermsF s0 (TState (n + 1) (Max (n + 1) arity))
+>   (:#?) :: {-(T'.Typeable s0, T'.Typeable nextI, T'.Typeable arity) =>-}
+>           Term TPAuto -> TermsF s0 (TState nextI arity)
+>               -> TermsF s0 (TState (nextI + 1) (arity + 1))
+> infixr 5 :#:
+> infixr 5 :#?
+> instance T'.Typeable (TermsF) where
+>   typeOf = \_ -> rep where
+>       rep = defaultSingTyRep "TermsF"
+> {- disabled until GHC 7.8
+> instance Eq (TermsF s0 s) where
+>   TNil == TNil = True
+>   (x :#: xs) == (y :#: ys) = and [x `eqT` y, xs `eqT` ys]
+>   (x :#? xs) == (y :#? ys) = and [x == y, xs `eqT` ys]-}
+
+> untypeTermsF' :: TermsF s0 s -> [TextTree]
+> untypeTermsF' TNil = []
+> untypeTermsF' (x :#: xs) = untype x : untypeTermsF' xs
+> untypeTermsF' (x :#? xs) = untype x : untypeTermsF' xs
+> instance Textful (TermsF s0 s) where
+>   untype xs = mkTNode (untypeTermsF' xs) [] []
+
+Bridi tail (compound bridi) definitions.
+A bridi tail is a divergent part of a logically merged bridi group.
+For example: `mi klama le zarci .ije mi nelci la djan.` is equivalent to
+`mi klama le zarci gi'e nelci la djan.`. The data type parameter encodes
+maximum used place index.
+
+> data family BridiTailF (s :: TermsState) :: TermsState -> *
+> data instance BridiTailF s0 sx where
+>   SelbriBT :: (T'.Typeable n, Selbri n s) => s -> TermsF s0 (TState ni arity)
+>       -> BridiTailF s0 (TState ni arity)
+> instance Textful (BridiTailF s0 s) where
+>   untype (SelbriBT s ts) = mkTNode [] [untype s] [untype ts]
+
+> data Bridi' :: Nat -> * where
+>   Bridi' :: TermsF (TState 0 0) s0 -> BridiTailF s0 (TState ni arity) -> Bridi' arity
+> instance Textful (Bridi' arity) where
+>   untype (Bridi' prefix tail) = mkTNode [untype prefix] [untype tail] []
 
 FA tag cmavo:
 
