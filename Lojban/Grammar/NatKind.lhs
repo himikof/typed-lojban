@@ -1,16 +1,25 @@
 This module exports Nat kind and related types.
 
-> {-# OPTIONS -XKindSignatures -XDataKinds -XGADTs -XStandaloneDeriving #-}
+> {-# OPTIONS -XKindSignatures -XDataKinds -XPolyKinds -XTypeFamilies -XTypeOperators #-}
+> {-# OPTIONS -XUndecidableInstances -XFlexibleInstances #-}
 
 > module Lojban.Grammar.NatKind
 > (
 >   Nat(..),
 >   Sing, SingI(..),
 >   fromSing,
+>   (+)(..), Max(..), If'(..),
 > )
 > where
 
 > import GHC.TypeLits
+
+> type family Max (m :: Nat) (n :: Nat) :: Nat
+> type instance Max m n = If' (m <=? n) n m
+
+> type family If' (c :: Bool) (a :: k) (b :: k) :: k
+> type instance If' True a b = a
+> type instance If' False a b = b
 
 > {-
 > module Lojban.Grammar.NatKind
