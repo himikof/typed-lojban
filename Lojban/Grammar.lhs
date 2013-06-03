@@ -26,7 +26,7 @@ This module exports high-level lojban grammar structures.
 >   SumtiFGT(..),
 >   SelbriFGT(..),
 >   CU(..), KE(..), KEhE(..), TanruApp(..), BO(..), CO(..),
->   KU(..), LE(..), FA(..),
+>   NA(..), KU(..), LE(..), FA(..),
 >   tanruApp, bo, co, ke, keKe'e, lo, loKu,
 > ) where
 
@@ -149,9 +149,11 @@ term sequence from state `a :: TermState` to `b :: TermState`.
 >   (:#?) :: (SingI (TPAutoTermsF s)) =>
 >           Term TPAuto -> TermsF s0 s
 >               -> TermsF s0 (TPAutoTermsF s)
+>   (:#|) :: (SingI s) => Term TPPhantom -> TermsF s0 s -> TermsF s0 s
 > nilTerm = TNil :: TermsF TSDefault TSDefault
 > infixr 5 :#:
 > infixr 5 :#?
+> infixr 5 :#|
 
 > instance EqT (TermsF s0) where
 >   TNil `eqT0` TNil = Just Refl
@@ -167,17 +169,20 @@ term sequence from state `a :: TermState` to `b :: TermState`.
 >           -> Maybe (TPAutoTermsF x :~: TPAutoTermsF y)
 >       prove _ = (sing :: Sing (TPAutoTermsF x)) `singTermsStateEq`
 >           (sing :: Sing (TPAutoTermsF y))
+>   (_ :#| xs) `eqT0` (_ :#| ys) = xs `eqT0` ys
 >   _ `eqT0` _ = Nothing
 >   
 > instance Eq (TermsF s0 s) where
 >   TNil == TNil = True
 >   (x :#: xs) == (y :#: ys) = and [x `eqT1` y, xs `eqT1` ys]
 >   (x :#? xs) == (y :#? ys) = and [x == y, xs `eqT1` ys]
+>   (x :#| xs) == (y :#| ys) = and [x == y, xs `eqT1` ys]
 
 > untypeTermsF' :: TermsF s0 s -> [TextTree]
 > untypeTermsF' TNil = []
 > untypeTermsF' (x :#: xs) = untype x : untypeTermsF' xs
 > untypeTermsF' (x :#? xs) = untype x : untypeTermsF' xs
+> untypeTermsF' (x :#| xs) = untype x : untypeTermsF' xs
 > instance Textful (TermsF s0 s) where
 >   untype xs = mkTNode (untypeTermsF' xs) [] []
 
