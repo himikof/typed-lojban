@@ -1,6 +1,7 @@
 This module exports lojban words and constructions.
 
 > {-# OPTIONS -XTypeFamilies -XDeriveGeneric -XDeriveDataTypeable -XOverloadedStrings #-}
+> {-# OPTIONS -XDataKinds #-}
 
 > module Lojban.Language
 > (

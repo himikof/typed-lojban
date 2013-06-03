@@ -1,10 +1,10 @@
 This module exports high-level lojban grammar structures.
 
-> {-# OPTIONS -XGADTs -XFunctionalDependencies -XTypeFamilies -XMultiParamTypeClasses #-}
+> {-# OPTIONS -XGADTs -XTypeFamilies -XTypeHoles -XMultiParamTypeClasses #-}
 > {-# OPTIONS -XFlexibleInstances -XTypeOperators -XFlexibleContexts -XViewPatterns #-}
-> {-# OPTIONS -XDeriveGeneric -XStandaloneDeriving -XDeriveDataTypeable #-}
+> {-# OPTIONS -XDeriveGeneric -XStandaloneDeriving -XDeriveDataTypeable -XAutoDeriveTypeable #-}
 > {-# OPTIONS -XKindSignatures -XDataKinds #-}
-> {-# OPTIONS -XOverloadedStrings -XScopedTypeVariables #-}
+> {-# OPTIONS -XOverloadedStrings -XScopedTypeVariables -XUndecidableInstances #-}
 
 > module Lojban.Grammar
 > (
@@ -12,8 +12,9 @@ This module exports high-level lojban grammar structures.
 >   Textful(..),
 >   showTextTree, reprTextTree,
 >   Sumti(..),
->   Term(..), TermsF(..), TermsState(..),
+>   Term(..), TermsF(..), TermsState(..), TSDefault, nilTerm,
 >   BridiTailF(..), Bridi'(..),
+>   bridi1, bridi2, bridi3, bridi4,
 >   Selbri(..),
 >   Bridi(..), SelbriCtx(..), defaultSC,
 >   SelbriPlace(..), defaultSP,
@@ -27,7 +28,6 @@ This module exports high-level lojban grammar structures.
 >   CU(..), KE(..), KEhE(..), TanruApp(..), BO(..), CO(..),
 >   KU(..), LE(..), FA(..),
 >   tanruApp, bo, co, ke, keKe'e, lo, loKu,
->   Max(..),
 > ) where
 
 > import GHC.Generics hiding (moduleName)
@@ -37,43 +37,18 @@ This module exports high-level lojban grammar structures.
 > import Data.List
 > import Data.Maybe (catMaybes)
 > import Control.Monad.State
-> import qualified Lojban.Grammar.Typeable as T'
 > import Lojban.Grammar.TextTree
 > import Lojban.Grammar.NatKind
-
-> packageName :: String
-> packageName = "lojban"
-
-> moduleName :: String
-> moduleName = "Lojban.Grammar"
+> import Lojban.Grammar.TypeEq
+> import Unsafe.Coerce (unsafeCoerce)
 
 Sumti class:
 
 > class (Eq w, Textful w, Typeable w, FGTaggable w) => Sumti w where
 
-T'.Typeable is kind-polymorphic advanced Typeable class.
-Define T'.Typeable instances for datatypes with unusual kinds:
-
-> defaultSingTyRep :: String -> TypeRep
-> defaultSingTyRep s = mkTyConApp (mkTyCon3 packageName moduleName s) []
-> {-instance T'.Typeable 'Z where
->   typeOf = \_ -> defaultSingTyRep "'Z"
-> instance T'.Typeable 'Su where
->   typeOf = \_ -> defaultSingTyRep "'Su"
-> instance T'.Typeable HNat where
->   typeOf = \_ -> defaultSingTyRep "HNat"-}
-> instance T'.Typeable (0 :: Nat) where
->   typeOf = \_ -> defaultSingTyRep "'Nat0"
-> instance T'.Typeable (1 :: Nat) where
->   typeOf = \_ -> defaultSingTyRep "'Nat1"
-> instance T'.Typeable (2 :: Nat) where
->   typeOf = \_ -> defaultSingTyRep "'Nat2"
-> instance T'.Typeable (3 :: Nat) where
->   typeOf = \_ -> defaultSingTyRep "'Nat3"
-
 Universal contradictory negator NA cmavo.
 
-> data NA = Na deriving (Eq, Generic, Typeable)
+> data NA = Na deriving (Eq, Generic)
 > instance Textful NA where
 
 Defining selbri and brivla (arity-constrained):
@@ -94,25 +69,22 @@ Defining selbri and brivla (arity-constrained):
 > defaultSC :: SelbriCtx
 > defaultSC = SCtx { hasCu = False, places = Nothing }
 
-> class (Eq t, Textful t, Typeable t, FGTaggable t) => Selbri (n :: Nat) t | t -> n where
+> --class (Eq t, Textful t, Typeable t, FGTaggable t) => Selbri (n :: Nat) t | t -> n where
+> class ({-Eq t, -}Textful t, FGTaggable t) => Selbri t where
+>   type SelbriArity t :: Nat
 
 > data Brivla :: Nat -> * where
 >   Brivla :: Word -> Brivla n
 > deriving instance Eq (Brivla n)
 
-Brivla cannot be in Typeable1, because its kind is Nat -> *, not * -> *.
-So we make use of T'.Typeable and instance (T'.Typeable t, T'.Typeable a) => Typeable (t a).
-So Brivla Nat1, for example, is in Typeable as well as T'.Typeable.
-
-> instance T'.Typeable (Brivla) where
->   typeOf = \_ -> rep where
->       rep = defaultSingTyRep "Brivla"
+> deriving instance Typeable (Brivla)
 > instance Textful (Brivla n) where
 >   untype (Brivla w) = TLeaf w
-> instance T'.Typeable n => FGTaggable (Brivla n) where
+> instance FGTaggable (Brivla n) where
 >   type FGTagged (Brivla n) = SelbriFGT n
 >   withFGTagC = SelbriFGT
-> instance T'.Typeable n => Selbri n (Brivla n) where
+> instance Selbri (Brivla n) where
+>   type SelbriArity (Brivla n) = n
 
 Term definition. Term is a (maybe tagged) sumti or a
 termset (compound term) or a KU/NA+KU (indicating no sumti).
@@ -130,12 +102,11 @@ TODO: TaggedTerm, TaggedKuTerm and CompoundTerm constructors.
 >   SumtiTerm :: Sumti s => s -> Term TPAuto
 >   IndexedTerm :: Sumti s => FA n -> s -> Term (TPFixed n)
 >   NaKuTerm :: NA -> KU -> Term TPPhantom
-> instance T'.Typeable ('TPFixed) where
->   typeOf = \_ -> rep where
->       rep = defaultSingTyRep "'TPFixed"
-> instance T'.Typeable (Term) where
->   typeOf = \_ -> rep where
->       rep = defaultSingTyRep "Term"
+> instance EqT Term where
+>   SumtiTerm _ `eqT0` SumtiTerm _ = Just Refl
+>   IndexedTerm tag _ `eqT0` IndexedTerm tag' _ = liftEq <$> tag `eqT0` tag'
+>   NaKuTerm _ _ `eqT0` NaKuTerm _ _ = Just Refl
+>   _ `eqT0` _ = Nothing
 > instance Eq (Term n) where
 >   SumtiTerm s == SumtiTerm s' = s `eqT` s'
 >   IndexedTerm tag s == IndexedTerm tag' s' = and [tag == tag', s `eqT` s']
@@ -152,28 +123,56 @@ Essentially, an object of type `TermsF a b` is a
 term sequence from state `a :: TermState` to `b :: TermState`.
 
 > data TermsState = TState { nextPlaceIndex :: Nat, placeArity :: Nat }
-> instance T'.Typeable ('TState) where
->   typeOf = \_ -> rep where
->       rep = defaultSingTyRep "'TState"
+> type TSDefault = TState 0 0
+> newtype instance Sing (a :: TermsState) = STermsState (Integer, Integer)
+> instance (SingI a, SingI b) => SingI (TState (a :: Nat) (b :: Nat)) where
+>   sing = STermsState (fromSing (sing :: Sing a), fromSing (sing :: Sing b))
+> instance SingE (KindOf (TState 0 0)) where
+>   type DemoteRep (KindOf (TState 0 0)) = (Integer, Integer)
+>   fromSing (STermsState s) = s
+> singTermsStateEq :: Sing (a :: TermsState) -> Sing (b :: TermsState) -> Maybe (a :~: b)
+> singTermsStateEq s1 s2 | fromSing s1 == fromSing s2 = Just (unsafeCoerce Refl)
+>                        | otherwise = Nothing
+
+> type family TPFixedTermsF (n :: Nat) (s :: TermsState) :: TermsState
+> type instance TPFixedTermsF n (TState nextI arity) =
+>   TState (n + 1) (Max (n + 1) arity)
+> type family TPAutoTermsF (s :: TermsState) :: TermsState
+> type instance TPAutoTermsF (TState nextI arity) =
+>   TState (nextI + 1) (arity + 1)
 > data family TermsF (s0 :: TermsState) :: TermsState -> *
 > data instance TermsF s0 sx where
 >   TNil :: TermsF s0 s0
->   (:#:) :: {-(T'.Typeable n, T'.Typeable s0, T'.Typeable nextI, T'.Typeable arity) =>-}
->           Term (TPFixed n) -> TermsF s0 (TState nextI arity)
->               -> TermsF s0 (TState (n + 1) (Max (n + 1) arity))
->   (:#?) :: {-(T'.Typeable s0, T'.Typeable nextI, T'.Typeable arity) =>-}
->           Term TPAuto -> TermsF s0 (TState nextI arity)
->               -> TermsF s0 (TState (nextI + 1) (arity + 1))
+>   (:#:) :: (SingI (TPFixedTermsF n s)) =>
+>           Term (TPFixed n) -> TermsF s0 s
+>               -> TermsF s0 (TPFixedTermsF n s)
+>   (:#?) :: (SingI (TPAutoTermsF s)) =>
+>           Term TPAuto -> TermsF s0 s
+>               -> TermsF s0 (TPAutoTermsF s)
+> nilTerm = TNil :: TermsF TSDefault TSDefault
 > infixr 5 :#:
 > infixr 5 :#?
-> instance T'.Typeable (TermsF) where
->   typeOf = \_ -> rep where
->       rep = defaultSingTyRep "TermsF"
-> {- disabled until GHC 7.8
+
+> instance EqT (TermsF s0) where
+>   TNil `eqT0` TNil = Just Refl
+>   (x :#: xs) `eqT0` (y :#: ys) =
+>       let
+>           prove :: forall n m x y. (SingI (TPFixedTermsF n x), SingI (TPFixedTermsF m y)) =>
+>               n :~: m -> x :~: y -> Maybe (TPFixedTermsF n x :~: TPFixedTermsF m y)
+>           prove _ _ = (sing :: Sing (TPFixedTermsF n x)) `singTermsStateEq`
+>               (sing :: Sing (TPFixedTermsF m y))
+>       in do {p1 <- x `eqT0` y; p2 <- xs `eqT0` ys; prove (lower p1) p2;}
+>   (_ :#? xs) `eqT0` (_ :#? ys) = (xs `eqT0` ys) >>= prove where
+>       prove :: forall x y. (SingI (TPAutoTermsF x), SingI (TPAutoTermsF y)) => x :~: y
+>           -> Maybe (TPAutoTermsF x :~: TPAutoTermsF y)
+>       prove _ = (sing :: Sing (TPAutoTermsF x)) `singTermsStateEq`
+>           (sing :: Sing (TPAutoTermsF y))
+>   _ `eqT0` _ = Nothing
+>   
 > instance Eq (TermsF s0 s) where
 >   TNil == TNil = True
->   (x :#: xs) == (y :#: ys) = and [x `eqT` y, xs `eqT` ys]
->   (x :#? xs) == (y :#? ys) = and [x == y, xs `eqT` ys]-}
+>   (x :#: xs) == (y :#: ys) = and [x `eqT1` y, xs `eqT1` ys]
+>   (x :#? xs) == (y :#? ys) = and [x == y, xs `eqT1` ys]
 
 > untypeTermsF' :: TermsF s0 s -> [TextTree]
 > untypeTermsF' TNil = []
@@ -190,15 +189,32 @@ maximum used place index.
 
 > data family BridiTailF (s :: TermsState) :: TermsState -> *
 > data instance BridiTailF s0 sx where
->   SelbriBT :: (T'.Typeable n, Selbri n s) => s -> TermsF s0 (TState ni arity)
+>   SelbriBT :: (Selbri s, arity <= SelbriArity s) => s -> TermsF s0 (TState ni arity)
 >       -> BridiTailF s0 (TState ni arity)
 > instance Textful (BridiTailF s0 s) where
 >   untype (SelbriBT s ts) = mkTNode [] [untype s] [untype ts]
 
 > data Bridi' :: Nat -> * where
->   Bridi' :: TermsF (TState 0 0) s0 -> BridiTailF s0 (TState ni arity) -> Bridi' arity
+>   Bridi' :: TermsF TSDefault s0 -> BridiTailF s0 (TState ni arity) -> Bridi' arity
 > instance Textful (Bridi' arity) where
 >   untype (Bridi' prefix tail) = mkTNode [untype prefix] [untype tail] []
+
+Helpers for simple bridi:
+
+> bridi1 :: (SelbriArity s ~ 1, Selbri s, Sumti x1)
+>     => s -> x1 -> Bridi' 1
+> bridi1 s x1 = Bridi' (SumtiTerm x1 :#? TNil) $ SelbriBT s TNil
+> bridi2 :: (SelbriArity s ~ 2, Selbri s, Sumti x1, Sumti x2)
+>     => s -> x1 -> x2 -> Bridi' 2
+> bridi2 s x1 x2 = Bridi' (SumtiTerm x1 :#? TNil) $ SelbriBT s (SumtiTerm x2 :#? TNil)
+> bridi3 :: (SelbriArity s ~ 3, Selbri s, Sumti x1, Sumti x2, Sumti x3)
+>     => s -> x1 -> x2 -> x3 -> Bridi' 3
+> bridi3 s x1 x2 x3 = Bridi' (SumtiTerm x1 :#? TNil) $ SelbriBT s
+>   (SumtiTerm x2 :#? SumtiTerm x3 :#? TNil)
+> bridi4 :: (SelbriArity s ~ 4, Selbri s, Sumti x1, Sumti x2, Sumti x3, Sumti x4)
+>     => s -> x1 -> x2 -> x3 -> x4 -> Bridi' 4
+> bridi4 s x1 x2 x3 x4 = Bridi' (SumtiTerm x1 :#? TNil) $ SelbriBT s
+>   (SumtiTerm x2 :#? SumtiTerm x3 :#? SumtiTerm x4 :#? TNil)
 
 FA tag cmavo:
 
@@ -210,6 +226,13 @@ TODO: CLL/9/3: support fi'a (in FA) - place structure question
 >   Fi :: FA 2
 >   Fo :: FA 3
 >   Fu :: FA 4
+> instance EqT FA where
+>   Fa `eqT0` Fa = Just Refl
+>   Fe `eqT0` Fe = Just Refl
+>   Fi `eqT0` Fi = Just Refl
+>   Fo `eqT0` Fo = Just Refl
+>   Fu `eqT0` Fu = Just Refl
+>   _ `eqT0` _ = Nothing
 > deriving instance Eq (FA n)
 > deriving instance Show (FA n)
 
@@ -280,22 +303,22 @@ TODO: CLL/9/3: Actually, there may be more than one Sumti in a slot, using FA ta
 How can it be typed?
 
 > data Bridi where
->   Bridi1 :: (Selbri 1 s, Sumti x1)
+>   Bridi1 :: (SelbriArity s ~ 1, Selbri s, Sumti x1)
 >       => s -> SelbriCtx -> x1 -> Bridi
->   Bridi2 :: (Selbri 2 s, Sumti x1, Sumti x2)
+>   Bridi2 :: (SelbriArity s ~ 2, Selbri s, Sumti x1, Sumti x2)
 >       => s -> SelbriCtx -> x1 -> x2 -> Bridi
->   Bridi3 :: (Selbri 3 s, Sumti x1, Sumti x2, Sumti x3)
+>   Bridi3 :: (SelbriArity s ~ 3, Selbri s, Sumti x1, Sumti x2, Sumti x3)
 >       => s -> SelbriCtx -> x1 -> x2 -> x3 -> Bridi
->   Bridi4 :: (Selbri 4 s, Sumti x1, Sumti x2, Sumti x3, Sumti x4)
+>   Bridi4 :: (SelbriArity s ~ 4, Selbri s, Sumti x1, Sumti x2, Sumti x3, Sumti x4)
 >       => s -> SelbriCtx -> x1 -> x2 -> x3 -> x4 -> Bridi
-> instance Eq Bridi where
+> {-instance Eq Bridi where
 >   Bridi1 s _ x1 == Bridi1 s' _ x1' = and [s `eqT` s', x1 `eqT` x1']
 >   Bridi2 s _ x1 x2 == Bridi2 s' _ x1' x2' = and [s `eqT` s', x1 `eqT` x1', x2 `eqT` x2']
 >   Bridi3 s _ x1 x2 x3 == Bridi3 s' _ x1' x2' x3' =
 >       and [s `eqT` s', x1 `eqT` x1', x2 `eqT` x2', x3 `eqT` x3']
 >   Bridi4 s _ x1 x2 x3 x4 == Bridi4 s' _ x1' x2' x3' x4' =
 >       and [s `eqT` s', x1 `eqT` x1', x2 `eqT` x2', x3 `eqT` x3', x4 `eqT` x4']
->   _ == _ = False
+>   _ == _ = False-}
 > instance Textful Bridi where
 >   untype (Bridi1 s c x1) = untypeBridi (untype s) c [untype x1]
 >   untype (Bridi2 s c x1 x2) = untypeBridi (untype s) c $ liftedUntype (x1, x2)
@@ -365,7 +388,7 @@ KE and KEhE cmavo:
 >   _            -> Nothing
 
 > class (Eq w, Textful w, Typeable w) => TanruOp w where
->   untypeArgsOrdered :: (Selbri m l, Selbri n r) => w -> l -> r -> (TextTree, TextTree)
+>   untypeArgsOrdered :: (Selbri l, Selbri r) => w -> l -> r -> (TextTree, TextTree)
 >   untypeArgsOrdered _ l r = (untype l, untype r)
 
 > data TanruApp = TanruApp deriving (Eq, Typeable)
@@ -383,19 +406,18 @@ KE and KEhE cmavo:
 >   untypeArgsOrdered _ l r = (untype r, untype l)
 
 > data Tanru :: Nat -> * where
->   Tanru :: (TanruOp op, Selbri m l, Selbri n r) => op -> TanruOpCtx -> l -> r -> Tanru n
+>   Tanru :: (TanruOp op, Selbri l, Selbri r, SelbriArity r ~ n) =>
+>       op -> TanruOpCtx -> l -> r -> Tanru n
 
-> instance (T'.Typeable n) => Selbri n (Tanru n) where
+> instance (Typeable n) => Selbri (Tanru n) where
+>   type SelbriArity (Tanru n) = n
 > instance Textful (Tanru n) where
 >   untype (Tanru op c l r) = mkTNode [untype $ mkKe c, ul] [untype op]
 >                                     [ur, untype $ mkKe'e c] where
 >       (ul, ur) = untypeArgsOrdered op l r
-> instance Eq (Tanru n) where 
->   Tanru op _ l r == Tanru op' _ l' r' = and [op `eqT` op', l `eqT` l', r `eqT` r']
-> instance T'.Typeable Tanru where
->   typeOf = \_ -> rep where
->       rep = defaultSingTyRep "Tanru"
-> instance T'.Typeable n => FGTaggable (Tanru n) where
+> {-instance Eq (Tanru n) where 
+>   Tanru op _ l r == Tanru op' _ l' r' = and [op `eqT` op', l `eqT` l', r `eqT` r']-}
+> instance Typeable n => FGTaggable (Tanru n) where
 >   type FGTagged (Tanru n) = SelbriFGT n
 >   withFGTagC = SelbriFGT
 
@@ -403,13 +425,13 @@ KE and KEhE cmavo:
 > modifyTanruOpCtx f (Tanru op c l r) = Tanru op (f c) l r
 
 > infixl 6 `tanruApp`
-> tanruApp :: (Selbri m l, Selbri n r) => l -> r -> Tanru n
+> tanruApp :: (Selbri l, Selbri r, n ~ SelbriArity r) => l -> r -> Tanru n
 > l `tanruApp` r = Tanru TanruApp defaultTC l r
 > infixr 9 `bo`
-> bo :: (Selbri m l, Selbri n r) => l -> r -> Tanru n
+> bo :: (Selbri l, Selbri r, n ~ SelbriArity r) => l -> r -> Tanru n
 > l `bo` r = Tanru Bo defaultTC l r
 > infixr 5 `co`
-> co :: (Selbri m l, Selbri n r) => r -> l -> Tanru n
+> co :: (Selbri l, Selbri r, n ~ SelbriArity r) => r -> l -> Tanru n
 > r `co` l = Tanru Co defaultTC l r
 
 > updateKeState :: KeState -> Tanru n -> Tanru n
@@ -436,22 +458,22 @@ TODO: implement other LE members - le, le'e, le'i, lo'e, lo'i, loi, etc
 
 > data LE = Lo deriving (Eq, Generic, Typeable)
 > instance Textful LE where
-> lo :: (Selbri n s) => s -> LESumti
-> lo = LESumti Lo defaultLEC
-> loKu :: (Selbri n s) => s -> LESumti
-> loKu = LESumti Lo defaultLEC { hasKu = True }
 
 > data LESumti where
->   LESumti :: (Selbri n s) => LE -> LESumtiCtx -> s -> LESumti
-> deriving instance (Typeable LESumti)
-> instance Eq LESumti where
->   LESumti d _ s == LESumti d' _ s' = and [d == d', s `eqT` s']
+>   LESumti :: (Selbri s) => LE -> LESumtiCtx -> s -> LESumti
+> {-instance Eq LESumti where
+>   LESumti d _ s == LESumti d' _ s' = and [d == d', s `eqT` s']-}
 > instance Textful LESumti where
 >   untype (LESumti d c s) = mkTNode [] [untype d] $ liftedUntype (s, mkKu c)
-> instance FGTaggable LESumti where
+> {-instance FGTaggable LESumti where
 >   type FGTagged LESumti = SumtiFGT
->   withFGTagC = SumtiFGT
-> instance Sumti LESumti where
+>   withFGTagC = SumtiFGT-}
+> --instance Sumti LESumti where
+
+> lo :: (Selbri s) => s -> LESumti
+> lo = LESumti Lo defaultLEC
+> loKu :: (Selbri s) => s -> LESumti
+> loKu = LESumti Lo defaultLEC { hasKu = True }
 
 Free grammar transformers: attitudinals and such
 
@@ -479,7 +501,6 @@ TODO: implement bridi tagging
 
 > data SumtiFGT where
 >   SumtiFGT :: (Sumti s, FreeGrammarTag t) => t -> FGTransCtx -> s -> SumtiFGT
-> deriving instance (Typeable SumtiFGT)
 > instance Eq SumtiFGT where
 >   SumtiFGT t _ s == SumtiFGT t' _ s' = and [t `eqT` t', s `eqT` s']
 > instance Textful SumtiFGT where
@@ -490,16 +511,15 @@ TODO: implement bridi tagging
 > instance Sumti SumtiFGT where
 
 > data SelbriFGT :: Nat -> * where
->   SelbriFGT :: (Selbri n s, FreeGrammarTag t) => t -> FGTransCtx -> s -> SelbriFGT n
-> instance T'.Typeable SelbriFGT where
->   typeOf = \_ -> rep where
->       rep = defaultSingTyRep "SelbriFGT"
-> instance Eq (SelbriFGT n) where
->   SelbriFGT t _ s == SelbriFGT t' _ s' = and [t `eqT` t', s `eqT` s']
+>   SelbriFGT :: (Selbri s, SelbriArity s ~ n, FreeGrammarTag t) =>
+>       t -> FGTransCtx -> s -> SelbriFGT n
+> {-instance Eq (SelbriFGT n) where
+>   SelbriFGT t _ s == SelbriFGT t' _ s' = and [t `eqT` t', s `eqT` s']-}
 > instance Textful (SelbriFGT n) where
 >   untype (SelbriFGT t c s) = defaultFreeGrammarUntype t c s
-> instance T'.Typeable n => FGTaggable (SelbriFGT n) where
+> instance FGTaggable (SelbriFGT n) where
 >   type FGTagged (SelbriFGT n) = SelbriFGT n
 >   withFGTagC = SelbriFGT
-> instance T'.Typeable n => Selbri n (SelbriFGT n) where
+> instance Selbri (SelbriFGT n) where
+>   type SelbriArity (SelbriFGT n) = n
 

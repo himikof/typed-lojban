@@ -5,14 +5,16 @@ This module exports Nat kind and related types.
 
 > module Lojban.Grammar.NatKind
 > (
->   Nat(..),
->   Sing, SingI(..),
->   fromSing,
->   (+)(..), Max(..), If'(..),
+>   Nat(..), 
+>   KindIs, KindOf, KindParam,
+>   Sing, SingI(..), SingE(..),
+>   (+)(..), Max(..), If'(..), (<=)(..),
 > )
 > where
 
 > import GHC.TypeLits
+
+> type KindParam = KindIs ()
 
 > type family Max (m :: Nat) (n :: Nat) :: Nat
 > type instance Max m n = If' (m <=? n) n m
