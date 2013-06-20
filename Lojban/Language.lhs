@@ -5,9 +5,9 @@ This module exports lojban words and constructions.
 
 > module Lojban.Language
 > (
->   ProSumti(..), Cmene(..),
+>   --ProSumti(..), Cmene(..),
 >   tavla, pelxu, dunda, zdani,
->   UI(..), CAI(..), NAI(..)
+>   --UI(..), CAI(..), NAI(..)
 > ) where
 
 > import Lojban.Grammar.Basic
@@ -18,39 +18,39 @@ This module exports lojban words and constructions.
 
 Some pro-sumti (pronouns and such):
 
-> data ProSumti = Mi | Do | Ti | Ta | Tu | Zo'e
+> {-data ProSumti = Mi | Do | Ti | Ta | Tu | Zo'e
 >   deriving (Eq, Generic, Typeable)
 > instance Textful ProSumti where
 > instance FGTaggable ProSumti where
 >   type FGTagged ProSumti = SumtiFGT
 >   withFGTagC = SumtiFGT
-> instance Sumti ProSumti where
+> instance Sumti ProSumti where-}
 
 Defining cmene (names):
 
-> data Cmene = La Word deriving (Eq, Generic, Typeable)
+> {-data Cmene = La Word deriving (Eq, Generic, Typeable)
 > instance Textful Cmene where
 > instance FGTaggable Cmene where
 >   type FGTagged Cmene = SumtiFGT
 >   withFGTagC = SumtiFGT
-> instance Sumti Cmene where
+> instance Sumti Cmene where-}
 
 Example brivla:
 
 > --- x1 (talker) talks to x2 (audience) about x3 (topic) in language x4
-> tavla :: Brivla 4
+> tavla :: Selbri 4
 > tavla = Brivla "tavla"
 
 > --- x1 is yellow
-> pelxu :: Brivla 1
+> pelxu :: Selbri 1
 > pelxu = Brivla "pelxu"
 
 > --- x1 gives x2 to x3 (without payment)
-> dunda :: Brivla 3
+> dunda :: Selbri 3
 > dunda = Brivla "dunda"
 
 > --- x1 is a nest/house/lair/den/[home] of/for x2
-> zdani :: Brivla 2
+> zdani :: Selbri 2
 > zdani = Brivla "zdani"
 
 Attitudinals implementation:
