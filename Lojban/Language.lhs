@@ -10,6 +10,7 @@ This module exports lojban words and constructions.
 >   UI(..), CAI(..), NAI(..)
 > ) where
 
+> import Lojban.Grammar.Basic
 > import Lojban.Grammar
 > import Lojban.Grammar.NatKind
 > import GHC.Generics hiding (moduleName)
@@ -54,17 +55,17 @@ Example brivla:
 
 Attitudinals implementation:
 
-> data UI = Ui deriving (Eq, Generic, Typeable)
-> instance Textful UI where
+> --data UI = Ui deriving (Eq, Generic, Typeable)
+> --instance Textful UI where
 > instance FreeGrammarTag UI where
 
-> data CAI = Cai|Cu'i|Pei|Sai|Ne'e deriving (Eq, Generic, Typeable)
-> instance Textful CAI where
+> --data CAI = Cai|Cu'i|Pei|Sai|Ne'e deriving (Eq, Generic, Typeable)
+> --instance Textful CAI where
 > instance FreeGrammarTag CAI where
 
 Universal negator NAI:
 It can be used as a FreeGrammarTag, among other places.
 
-> data NAI = Nai deriving (Eq, Generic, Typeable)
-> instance Textful NAI where 
+> --data NAI = Nai deriving (Eq, Generic, Typeable)
+> --instance Textful NAI where 
 > instance FreeGrammarTag NAI where

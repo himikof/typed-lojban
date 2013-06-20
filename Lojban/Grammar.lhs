@@ -277,20 +277,6 @@ Some helpers for bridi implementation:
 > mkCu :: SelbriCtx -> Elidable CU
 > mkCu c = if hasCu c then Just Cu else Nothing
 
-> class GLiftedUntype f where
->   gliftedUntype :: f a -> [TextTree]
-> instance GLiftedUntype U1 where
->   gliftedUntype U1 = []
-> instance (GLiftedUntype a, GLiftedUntype b) => GLiftedUntype (a :*: b) where
->   gliftedUntype (a :*: b) = gliftedUntype a ++ gliftedUntype b
-> instance (GLiftedUntype a) => GLiftedUntype (M1 i c a) where
->   gliftedUntype (M1 x) = gliftedUntype x
-> instance (Textful a) => GLiftedUntype (K1 i a) where
->   gliftedUntype (K1 x) = [untype x]
-
-> liftedUntype :: (Generic a, GLiftedUntype (Rep a)) => a -> [TextTree]
-> liftedUntype = gliftedUntype . from
-
 > eqT :: (Eq a, Typeable a, Typeable b) => a -> b -> Bool 
 > eqT a b = Just a == cast b
 

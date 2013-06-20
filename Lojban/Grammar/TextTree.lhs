@@ -7,7 +7,8 @@ This module exports basic TextTree definitions.
 > (
 >   Word, TreeT(..), TextTree,
 >   Textful(..),
->   mkTNode, mkTNode', emptyTNode, showTextTree, reprTextTree
+>   mkTNode, mkTNode', emptyTNode, showTextTree, reprTextTree,
+>   liftedUntype,
 > ) where
 
 > import Prelude hiding (elem, all)
@@ -102,6 +103,21 @@ Generic phrase untyping:
 > instance (Datatype d, GPhraseUntype f) => GPhraseUntype (D1 d f) where
 >   guntype2 (M1 x) = guntype2 x
 >   guntype (M1 x) = guntype x
+
+> class GLiftedUntype f where
+>   gliftedUntype :: f a -> [TextTree]
+> instance GLiftedUntype U1 where
+>   gliftedUntype U1 = []
+> instance (GLiftedUntype a, GLiftedUntype b) => GLiftedUntype (a :*: b) where
+>   gliftedUntype (a :*: b) = gliftedUntype a ++ gliftedUntype b
+> instance (GLiftedUntype a) => GLiftedUntype (M1 i c a) where
+>   gliftedUntype (M1 x) = gliftedUntype x
+> instance (Textful a) => GLiftedUntype (K1 i a) where
+>   gliftedUntype (K1 x) = [untype x]
+
+> liftedUntype :: (Generic a, GLiftedUntype (Rep a)) => a -> [TextTree]
+> liftedUntype = gliftedUntype . from
+
 
 > showTextTree :: TextTree -> String
 > showTextTree = (intercalate " ") . (map unWord) . flatten

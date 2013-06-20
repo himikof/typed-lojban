@@ -8,4 +8,4 @@ This is a quick testbed for prototyping lojban-related Haskell code.
 
 > import Lojban.Grammar
 > import Lojban.Language
-
+> import qualified Lojban.Grammar.Simple as S
