@@ -10,6 +10,7 @@
 >   LE(..), KU(..),
 >   UI(..), CAI(..),
 >   NAI(..), Quantifier(..),
+>   CU(..),
 > ) where
 
 > import Lojban.Grammar.TextTree
@@ -24,6 +25,9 @@ Elidable functor:
 
 > data NA = Na deriving (Eq, Generic)
 > instance Textful NA where
+
+> data CU = Cu deriving (Eq, Generic)
+> instance Textful CU where
 
 > data KE = Ke deriving (Eq, Generic)
 > instance Textful KE where

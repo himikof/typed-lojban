@@ -40,16 +40,12 @@ This module exports high-level lojban grammar structures.
 > import Lojban.Grammar.TextTree
 > import Lojban.Grammar.NatKind
 > import Lojban.Grammar.TypeEq
+> import Lojban.Grammar.Basic
 > import Unsafe.Coerce (unsafeCoerce)
 
 Sumti class:
 
 > class (Eq w, Textful w, Typeable w, FGTaggable w) => Sumti w where
-
-Universal contradictory negator NA cmavo.
-
-> data NA = Na deriving (Eq, Generic)
-> instance Textful NA where
 
 Defining selbri and brivla (arity-constrained):
 
@@ -261,17 +257,6 @@ TODO: CLL/9/3: support fi'a (in FA) - place structure question
 > mkFA 3 = Just Fo
 > mkFA 4 = Just Fu-}
 
-CU cmavo:
-
-> data CU = Cu deriving (Eq, Generic)
-> instance Textful CU where
-
-Elidable functor:
-
-> type Elidable = Maybe
-> instance Textful t => Textful (Elidable t) where
->   untype = maybe emptyTNode untype
-
 Some helpers for bridi implementation:
 
 > mkCu :: SelbriCtx -> Elidable CU
@@ -358,13 +343,6 @@ TODO: JA, JAbo, prohibit co inside ke...ke'e
 
 > data KeState = HasKEAndKEhE | HasKE | HasNone
 
-KE and KEhE cmavo:
-
-> data KE = Ke deriving (Eq, Generic)
-> instance Textful KE where
-> data KEhE = Ke'e deriving (Eq, Generic)
-> instance Textful KEhE where
-
 > data TanruOpCtx = TanruOpCtx { keState :: KeState }
 > defaultTC :: TanruOpCtx
 > defaultTC = TanruOpCtx { keState = HasNone }
@@ -432,11 +410,6 @@ KE and KEhE cmavo:
 > keKe'e :: Tanru n -> Tanru n
 > keKe'e = updateKeState HasKEAndKEhE
 
-KU cmavo:
-
-> data KU = Ku deriving (Eq, Generic)
-> instance Textful KU where
-
 Descriptors - selbri to sumti conversion
 
 TODO: implement other LE members - le, le'e, le'i, lo'e, lo'i, loi, etc
@@ -446,9 +419,6 @@ TODO: implement other LE members - le, le'e, le'i, lo'e, lo'i, loi, etc
 > defaultLEC = LESumtiCtx { hasKu = False }
 > mkKu :: LESumtiCtx -> Elidable KU
 > mkKu c = if hasKu c then Just Ku else Nothing
-
-> data LE = Lo deriving (Eq, Generic, Typeable)
-> instance Textful LE where
 
 > data LESumti where
 >   LESumti :: (Selbri s) => LE -> LESumtiCtx -> s -> LESumti
